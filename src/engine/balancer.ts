@@ -578,7 +578,9 @@ function createRoleAssignment(
 export function balanceTeams(
   lobby: LobbyPlayer[],
   softConstraints: SoftConstraint[] = [],
-  mode: GameMode = "stadium_5v5"
+  mode: GameMode = "stadium_5v5",
+  /** tankEmphasisPercent: 0-100 where 0 = off, 100 = max emphasis on Tank matchup */
+  tankEmphasisPercent: number = 0,
 ): TeamAssignment {
   const warnings: Warning[] = [];
   const modeConfig = getModeConfig(mode);
@@ -731,7 +733,8 @@ export function balanceTeams(
 
   // Scorer: evaluates complete team compositions (lower = better)
   const scorer: CompositionScorer = (team1, team2) => {
-    return scoreComposition(team1, team2, softConstraints, mode);
+    const tankEmphasis = Math.max(0, Math.min(100, tankEmphasisPercent)) / 100;
+    return scoreComposition(team1, team2, softConstraints, mode, tankEmphasis);
   };
 
   // Extract hard constraints for explicit enforcement

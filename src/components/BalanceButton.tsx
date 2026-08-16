@@ -15,6 +15,7 @@ export function BalanceButton() {
   const lobbyCount = useSessionStore((state) => state.lobbyBattletags.length);
   const softConstraints = useSessionStore((state) => state.softConstraints);
   const gameMode = useSessionStore((state) => state.gameMode);
+  const tankBalanceEmphasisPercent = useSessionStore((state) => state.tankBalanceEmphasisPercent);
   const theme = useTheme();
   
   const modeConfig = getModeConfig(gameMode);
@@ -28,7 +29,7 @@ export function BalanceButton() {
       // We keep mustPlay as-is - sat-out players should have priority
       const playersForBalance = lobbyPlayers;
       
-      const result = balanceTeams(playersForBalance, softConstraints, gameMode);
+      const result = balanceTeams(playersForBalance, softConstraints, gameMode, tankBalanceEmphasisPercent);
       
       setLastResult(result);
     } catch (error) {

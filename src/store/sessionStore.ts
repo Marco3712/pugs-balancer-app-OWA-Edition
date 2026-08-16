@@ -83,6 +83,9 @@ interface SessionState {
 
   /** Whether draft mode is active (captain pick flow) */
   draftMode: boolean;
+
+  /** Tank balance emphasis percent (0-100). 0 = off, 100 = max emphasis on Tank matchup */
+  tankBalanceEmphasisPercent: number;
 }
 
 interface SessionActions {
@@ -173,6 +176,9 @@ interface SessionActions {
   // Cycle font scale for accessibility
   cycleFontScale: () => void;
 
+  // Update tank balance emphasis (0-100)
+  setTankBalanceEmphasis: (percent: number) => void;
+
   // Update all references when a player is renamed
   renamePlayerInSession: (oldBattletag: string, newBattletag: string) => void;
 
@@ -245,6 +251,8 @@ const sessionStorage = {
         parsed.state.gameMode = parsed.state.gameMode || "stadium_5v5";
         // Default draftMode for existing sessions
         parsed.state.draftMode = parsed.state.draftMode ?? false;
+        // Default tank balance emphasis for older persisted sessions
+        parsed.state.tankBalanceEmphasisPercent = parsed.state.tankBalanceEmphasisPercent ?? 0;
       }
       return parsed;
     } catch (e) {
@@ -336,6 +344,8 @@ const initialState: SessionState = {
   showWeightModifiers: true,
   fontScale: "normal" as const,
   draftMode: false,
+  // Tank balance emphasis percent (0-100). 0 = off, 100 = max emphasis on Tank matchup
+  tankBalanceEmphasisPercent: 0,
 };
 
 export const useSessionStore = create<SessionStore>()(
@@ -652,7 +662,7 @@ export const useSessionStore = create<SessionStore>()(
               if (lobbyPlayers.length >= requiredPlayers) {
                 // Clear must-play for reshuffle - those are for next match only
                 const playersForBalance = lobbyPlayers.map((p) => ({ ...p, mustPlay: false }));
-                const result = balanceTeams(playersForBalance, updatedState.softConstraints, updatedState.gameMode);
+                const result = balanceTeams(playersForBalance, updatedState.softConstraints, updatedState.gameMode, updatedState.tankBalanceEmphasisPercent);
                 // Use the setLastResult action to properly handle lock cleanup
                 get().setLastResult(result);
               }
@@ -1284,7 +1294,7 @@ export const useSessionStore = create<SessionStore>()(
         const requiredPlayers = modeConfig.teamSize * 2;
         
         if (lobbyPlayers.length >= requiredPlayers) {
-          const newResult = balanceTeams(lobbyPlayers, state.softConstraints, state.gameMode);
+                  const newResult = balanceTeams(lobbyPlayers, state.softConstraints, state.gameMode, state.tankBalanceEmphasisPercent);
           set({ lastResult: newResult });
         }
       },
@@ -1304,7 +1314,7 @@ export const useSessionStore = create<SessionStore>()(
           .filter((p) => draftedBattletags.has(p.battletag))
           .map((p) => ({ ...p, lockedToTeam: null as (1 | 2 | null) }));
 
-        const newResult = balanceTeams(lobbyPlayers, state.softConstraints, state.gameMode);
+        const newResult = balanceTeams(lobbyPlayers, state.softConstraints, state.gameMode, state.tankBalanceEmphasisPercent);
 
         // Re-assign drafted players to their balanced teams, staying in draft mode
         const newLockedTeam1 = new Set<string>();
@@ -1343,7 +1353,7 @@ export const useSessionStore = create<SessionStore>()(
 
         // Run balancer — assigned players already have lockedToTeam/lockedToRole set,
         // so the balancer respects them natively
-        const result = balanceTeams(lobbyPlayers, state.softConstraints, state.gameMode);
+        const result = balanceTeams(lobbyPlayers, state.softConstraints, state.gameMode, state.tankBalanceEmphasisPercent);
 
         if (result.team1.length === 0 || result.team2.length === 0) {
           return { error: "Could not form valid teams. Check role composition — assigned players may conflict with available roles." };
@@ -1405,6 +1415,12 @@ export const useSessionStore = create<SessionStore>()(
           const idx = order.indexOf(state.fontScale);
           return { fontScale: order[(idx + 1) % order.length] };
         });
+      },
+
+      // Update tank balance emphasis (0-100)
+      setTankBalanceEmphasis: (percent: number) => {
+        const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+        set({ tankBalanceEmphasisPercent: clamped });
       },
 
       // Update all references when a player is renamed

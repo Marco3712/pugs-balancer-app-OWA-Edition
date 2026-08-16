@@ -379,6 +379,33 @@ export function calculateRoleMatchupPenalty(
 }
 
 /**
+ * Detailed role matchup gaps by role (useful for weighted calculations)
+ */
+export function calculateRoleMatchupGaps(
+  team1: RoleAssignment[],
+  team2: RoleAssignment[],
+): Record<Role, number> {
+  const gaps: Record<Role, number> = { Tank: 0, DPS: 0, Support: 0 };
+  const roles: Role[] = ["Tank", "DPS", "Support"];
+
+  for (const role of roles) {
+    const t1Players = team1.filter((ra) => ra.assignedRole === role);
+    const t2Players = team2.filter((ra) => ra.assignedRole === role);
+
+    if (t1Players.length === 0 || t2Players.length === 0) {
+      gaps[role] = 0;
+      continue;
+    }
+
+    const t1Avg = t1Players.reduce((sum, ra) => sum + ra.effectiveSR, 0) / t1Players.length;
+    const t2Avg = t2Players.reduce((sum, ra) => sum + ra.effectiveSR, 0) / t2Players.length;
+    gaps[role] = Math.abs(t1Avg - t2Avg);
+  }
+
+  return gaps;
+}
+
+/**
  * Calculate team score breakdown
  * 
  * @param team1 - First team's role assignments
@@ -435,7 +462,12 @@ export function scoreComposition(
   team1: RoleAssignment[],
   team2: RoleAssignment[],
   softConstraints: SoftConstraint[] = [],
-  mode: GameMode = "stadium_5v5"
+  mode: GameMode = "stadium_5v5",
+  /**
+   * tankEmphasis: 0..1 where 0 = off (default), 1 = maximum emphasis on Tank matchup
+   * This scales the Tank role gap up to 10× when set to 1 to make it dominate role-matchup
+   */
+  tankEmphasis: number = 0,
 ): number {
   let score = 0;
   const modeConfig = getModeConfig(mode);
@@ -471,8 +503,13 @@ export function scoreComposition(
   score += (rawVariance / (rawVariance + 800)) * 100;
 
   // 6. Per-role SR matchup — soft-normalized (half-point at 4000)
-  const rawMatchup = calculateRoleMatchupPenalty(team1, team2);
-  score += (rawMatchup / (rawMatchup + 4000)) * 500;
+  // Allow emphasizing Tank matchup via tankEmphasis (0..1). When 1, Tank gap is scaled ×10.
+  const gaps = calculateRoleMatchupGaps(team1, team2);
+  const tankGap = gaps.Tank || 0;
+  const otherGap = (gaps.DPS || 0) + (gaps.Support || 0);
+  const tankMultiplier = 1 + Math.max(0, Math.min(1, tankEmphasis)) * 9; // 1..10
+  const weightedRawMatchup = tankGap * tankMultiplier + otherGap;
+  score += (weightedRawMatchup / (weightedRawMatchup + 4000)) * 500;
 
   return score;
 }

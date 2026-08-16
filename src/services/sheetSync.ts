@@ -7,6 +7,8 @@ import { computeDiff } from "@services/diffEngine";
 import type { SyncDiff, PlayerDiff } from "@services/diffEngine";
 import {
   readRosterSheet,
+  readInfoSheet,
+  updateInfoCell,
   getSpreadsheetMeta,
   batchUpdateCells,
   appendRows,
@@ -112,14 +114,77 @@ export function consolidateWinsBeforeSync(): void {
 // Sync orchestrator (§8.1 — P1-026)
 // ---------------------------------------------------------------------------
 
+const APP_VERSION = "0.0.0";
+
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((s) => parseInt(s, 10) || 0);
+  const pb = b.split('.').map((s) => parseInt(s, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
 export async function performSync(
   spreadsheetId: string,
 ): Promise<SyncDiff> {
   // 1. Consolidate session wins into player baselines
   consolidateWinsBeforeSync();
 
-  // 2. Verify spreadsheet has a Roster tab
+  // 2. Verify spreadsheet has a Roster tab and get meta
   await getSpreadsheetMeta(spreadsheetId);
+
+  // 2b. Read Info sheet and check version compatibility
+  try {
+    const infoRows = await readInfoSheet(spreadsheetId);
+    // Find any cell that looks like 'SheetVersion: x.y.z' or 'Version: x.y.z'
+    let found = false;
+    let sheetVersion: string | null = null;
+    let foundRow = -1;
+    let foundCol = -1;
+    for (let r = 0; r < infoRows.length; r++) {
+      const row = infoRows[r];
+      for (let c = 0; c < row.length; c++) {
+        const cell = String(row[c] ?? "").trim();
+        const m = cell.match(/sheetversion[:\s]*([0-9.]+)/i) || cell.match(/version[:\s]*([0-9.]+)/i);
+        if (m) {
+          sheetVersion = m[1];
+          found = true;
+          foundRow = r + 1; // 1-based
+          foundCol = c + 1; // 1-based
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    if (sheetVersion) {
+      const cmp = compareVersions(sheetVersion, APP_VERSION);
+      if (cmp > 0) {
+        throw new SyncError(
+          "SHEET_REQUIRES_NEWER_APP",
+          `Spreadsheet requires app version ${sheetVersion} but current is ${APP_VERSION}. Please update the application before syncing.`,
+        );
+      }
+
+      if (cmp < 0) {
+        // Sheet is older - update the version cell if found, otherwise append a new Info row
+        const writeRange = found ? `Info!${String.fromCharCode(64 + foundCol)}${foundRow}` : `Info!A${infoRows.length + 1}`;
+        await updateInfoCell(spreadsheetId, writeRange, `SheetVersion: ${APP_VERSION}`);
+      }
+    } else {
+      // No version found - append
+      const writeRange = `Info!A${infoRows.length + 1}`;
+      await updateInfoCell(spreadsheetId, writeRange, `SheetVersion: ${APP_VERSION}`);
+    }
+  } catch (e) {
+    // Non-fatal: if reading info sheet fails, continue; but if it's a SyncError rethrow
+    if (e instanceof SyncError) throw e;
+    // otherwise ignore info read errors
+  }
 
   // 3. Read sheet data
   const { headers, rows } = await readRosterSheet(spreadsheetId);

@@ -161,6 +161,20 @@ export function LobbySelector() {
     setLobby([]);
   }, [setLobby]);
 
+  // Mass delete confirmation state
+  const clearPlayers = usePlayerStore((s) => s.clearPlayers);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const handleMassDelete = useCallback(() => {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    // Perform deletion
+    clearPlayers();
+    setLobby([]);
+    setConfirmingDelete(false);
+  }, [confirmingDelete, clearPlayers, setLobby]);
+
   const handleAddPlayer = () => {
     setEditingPlayer(null);
     setModalOpen(true);
@@ -219,12 +233,40 @@ export function LobbySelector() {
           >
             All
           </button>
-          <button
-            onClick={handleClearAll}
-            className="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors"
-          >
-            Clear
-          </button>
+          <div className="flex flex-col">
+            <button
+              onClick={handleClearAll}
+              className="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+            >
+              Clear
+            </button>
+            {!confirmingDelete ? (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="mt-2 px-3 py-1 text-sm bg-red-700 hover:bg-red-600 rounded transition-colors"
+              >
+                🗑️ Mass delete players
+              </button>
+            ) : (
+              <div className="mt-2 p-2 bg-gray-800 rounded">
+                <div className="text-sm text-yellow-300 mb-2">Warning: This will permanently remove ALL local players and clear the lobby. This does NOT remove any players from the linked Google Sheet.</div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleMassDelete}
+                    className="flex-1 py-1 px-2 bg-red-700 hover:bg-red-600 rounded text-sm font-semibold"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDelete(false)}
+                    className="py-1 px-2 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

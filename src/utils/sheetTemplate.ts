@@ -51,6 +51,8 @@ export function serializePlayerToRow(player: Player): string[] {
 // Template creation (§5.2)
 // ---------------------------------------------------------------------------
 
+const APP_VERSION = "0.0.0";
+
 export function buildTemplateRequest(title: string): object {
   return {
     properties: { title },
@@ -136,7 +138,17 @@ export function buildTemplateRequest(title: string): object {
                   {
                     userEnteredValue: {
                       stringValue:
-                        "Valid Comp tiers: Bronze, Silver, Gold, Platinum, Diamond, Master, Grandmaster, Champion (sub-rank 1-5)",
+                      "Valid Comp tiers: Bronze, Silver, Gold, Platinum, Emerald, Diamond, Master, Grandmaster, Champion (sub-rank 1-5)",
+                    },
+                  },
+                ],
+              },
+              {
+                values: [
+                  {
+                    userEnteredValue: {
+                      stringValue:
+                        `SheetVersion: ${APP_VERSION}`,
                     },
                   },
                 ],
@@ -258,6 +270,7 @@ export function buildDataValidationRequests(sheetId: number): object[] {
     "Silver",
     "Gold",
     "Platinum",
+    "Emerald",
     "Diamond",
     "Master",
     "Grandmaster",
