@@ -68,6 +68,45 @@ export async function readRosterSheet(
   };
 }
 
+// Read the Info sheet rows (returns array of rows, each row is array of cell strings)
+export async function readInfoSheet(
+  spreadsheetId: string,
+): Promise<string[][]> {
+  const range = encodeURIComponent("Info");
+  const response = await authFetch(
+    `${SHEETS_API}/${spreadsheetId}/values/${range}?majorDimension=ROWS`,
+  );
+
+  if (!response.ok) {
+    throw new SheetsApiError(response.status, await response.text());
+  }
+
+  const data = await response.json();
+  const values: string[][] = data.values ?? [];
+  return values;
+}
+
+// Update a specific range on the Info sheet (e.g. 'Info!A6') with a single value
+export async function updateInfoCell(
+  spreadsheetId: string,
+  range: string,
+  value: string,
+): Promise<void> {
+  const data = [{ range, values: [[value]] }];
+  const response = await authFetch(
+    `${SHEETS_API}/${spreadsheetId}/values:batchUpdate`,
+    {
+      method: "POST",
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new SheetsApiError(response.status, await response.text());
+  }
+}
+
+
 // ---------------------------------------------------------------------------
 // Write (batch update cells)
 // ---------------------------------------------------------------------------

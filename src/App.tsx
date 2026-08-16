@@ -12,6 +12,7 @@ import { SyncButton } from "@components/SyncButton";
 import { SyncDiffModal } from "@components/SyncDiffModal";
 import { SheetSetupModal } from "@components/SheetSetupModal";
 import { DraftView } from "@components/DraftView";
+import { TankBalanceWeightPanel } from "@components/TankBalanceWeightPanel";
 import { useSessionStore } from "@store/sessionStore";
 import { useSheetStore } from "@store/sheetStore";
 import { useTheme } from "@hooks/useTheme";
@@ -224,6 +225,14 @@ function App() {
               </>
             )}
             <SpectatorsList />
+
+            {/* Tank balance weight slider - shown only on the Draft page, placed above Constraints */}
+            {draftMode && (
+              <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+                <TankBalanceWeightPanel />
+              </div>
+            )}
+
             <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
               <ConstraintsPanel />
             </div>

@@ -280,6 +280,7 @@ const COMPETITIVE_TIERS: CompetitiveRankTier[] = [
   "Silver",
   "Gold",
   "Platinum",
+  "Emerald",
   "Diamond",
   "Master",
   "Grandmaster",
